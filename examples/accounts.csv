@@ -1,5 +1,5 @@
-account_id,account_name,group
-001,Arbor,Studio A
-002,Nova,Studio A
-003,Echo,Studio B
-004,Mira,Studio B
+account_id,account_name,group,business_group,tracking_tier,account_type,market,owner,tags,active
+001,Arbor,Studio A,Editorial,priority,owned,APAC,Team A,news;video,true
+002,Nova,Studio A,Editorial,standard,competitor,APAC,Team A,news,true
+003,Echo,Studio B,Community,priority,benchmark,Global,Team B,community,true
+004,Mira,Studio B,Community,watchlist,creator,Global,Team B,video,true
