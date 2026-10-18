@@ -2,7 +2,7 @@
 
 English · [中文](./README.zh-CN.md)
 
-**Offline account monitoring and multi-metric analytics.**
+**Account monitoring and multi-metric analytics.**
 
 Turn prepared daily account data into publishing and engagement summaries, priority-account views, platform rankings, and recurring reports.
 
