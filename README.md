@@ -6,8 +6,6 @@ English · [中文](./README.zh-CN.md)
 
 Turn prepared daily account data into publishing and engagement summaries, priority-account views, platform rankings, and recurring reports.
 
-This public edition rebuilds a workflow originally developed in Stata during a Weibo internship. It uses Python's standard library and entirely synthetic examples. Original company files and account data are not included. It does not scrape websites, call platform APIs, or automatically collect data.
-
 ## Try it
 
 Requires Python 3.9 or later. No packages, network access, or API keys are needed.
