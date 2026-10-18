@@ -1,46 +1,31 @@
-# 跨平台账号监测
+# 跨平台账号追踪工具
 
 [English](./README.md) · 中文
 
-**跨平台账号发布监测与分析。**
+离线多指标账号追踪：发文、转发、点赞、评论、总互动、篇均互动，以及分组、平台内排行和重点账号报告。
 
-将账号日度数据转化为统一的发布汇总、平台对比与周期报表。
-
-本公开版本基于我在微博实习期间开发的 Stata 分析工作流重新整理，使用 Python 实现，附完全虚构的示例数据。原始公司文件和真实账号数据不包含在本仓库中。
-
-## 快速运行
-
-需要 Python 3.9 或以上版本，无需安装额外依赖。
+本项目以 Python 标准库重新实现微博实习期间使用 Stata 搭建的自动化分析流程。所有示例均为模拟数据，不包含公司原始文件或真实账号数据。不会自动抓取，不使用爬虫或平台 API。
 
 ```bash
-python3 tracker.py --input examples --date 2026-09-05 --output reports
+python3 tracker.py --input examples --date 2026-09-05 --group-by business_group --rank-by engagement --output reports
 ```
 
-打开 `reports/report.html` 查看结果，也可使用 CSV 表格和 JSON 汇总继续分析。重复运行会更新输出目录中的同名报表。
+需要 Python 3.9+，无额外依赖。打开 `reports/report.html` 查看结果。
 
-![虚构数据演示](./demo.jpg)
+- `observations.csv` 使用 `date,account_id,platform,posts_published,reposts_gained,likes_gained,comments_gained`。指标均为当天新增量，不是累计值。
+- 空值、缺列、缺行表示未知；`0` 表示确认无新增。旧字段 `posts` 在新列不存在时映射为 `posts_published`；两列同时存在时以新列为准，包括空值。
+- 每项指标独立计算 complete/partial/missing 覆盖率。基础指标合计已知值并标记覆盖情况；完全未知时不输出零。
+- 总互动为转发、点赞、评论之和，仅在该统计范围内三项组成指标全部完整时输出。篇均互动还要求发文覆盖完整且合计大于零；否则为空。零分母下即使输入覆盖完整，篇均互动仍为空。
+- `accounts.csv` 保留 `group`，支持 `business_group,tracking_tier,account_type,market,owner,tags,active`。仅 `account_id,account_name` 必填。
+- `tracking_tier` 为 priority/standard/watchlist，默认 standard。`account_type` 为 owned/competitor/benchmark/creator，可留空。`active` 为 true/false 或 1/0，默认 true；停用账号不进入统计。
+- `--group-by` 支持 group/business_group/tracking_tier/account_type/market，默认 group。
+- `--rank-by` 支持 posts_published/engagement/likes_gained/comments_gained/reposts_gained，默认 posts_published。排名始终在各平台内部进行，仅要求所选指标的本月覆盖完整。
 
-## 适用需求
+报告包含 daily.csv、monthly.csv、priority.csv、rankings.csv、groups.csv、summary.json、report.json 和 report.html。重点账号独立呈现。CSV 空白、JSON null 和 HTML 横线均不代表零。月度变化要求两期对应指标完整且可计算；月末比较窗口可能长短不同。
 
-- 按固定名单持续监测账号发布情况。
-- 汇总当日与当月累计发布量。
-- 对比同一账号在不同平台的发布活动。
-- 生成平台排行、分组汇总和前后周期对照。
-
-## 输入与输出
-
-输入为 `accounts.csv`（账号名单）和 `observations.csv`（账号、平台、日期、发布量）。账号 ID 需提前完成跨平台统一；程序读取已准备好的数据文件。
-
-输出包括日报、月度对照、平台排行、分组汇总、结构化统计与 HTML 报告。字段、参数及完整规则见 [English documentation](./README.md#data-contract)。
-
-**零值与缺失分开处理：** `0` 表示已确认未发布，缺行表示没有观测。月累计同时显示数据覆盖率；仅在两个周期都有完整观测时计算变化，排行也只包含本期观测完整的账号。跨月比较使用相同日序号，遇到较短月份时截到月末，请结合报告中的日期范围解读。
-
-## 技术特点
-
-账号键校验、数据匹配、分组聚合、周期对比、覆盖率检查，以及可复用的报表生成流程。代码使用 Python 标准库，无需 API 密钥或外部服务。
+完整字段、覆盖率定义和报告说明见 [英文文档](./README.md)，模拟数据说明见 [examples](./examples/README.md)。
 
 ```bash
 python3 -m unittest discover -s tests -v
+git diff --check
 ```
-
-发布量反映账号活动，不能直接代表内容质量或治理效果。

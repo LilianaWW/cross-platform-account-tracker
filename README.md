@@ -2,84 +2,100 @@
 
 English · [中文](./README.zh-CN.md)
 
-**Cross-platform account monitoring and analytics.**
+**Offline account monitoring and multi-metric analytics.**
 
-Turn daily account exports into consistent publication summaries, platform comparisons, and recurring reports.
+Turn prepared daily account data into publishing and engagement summaries, priority-account views, platform rankings, and recurring reports.
 
-This public edition rebuilds a workflow I originally developed in Stata during a Weibo internship. It uses a dependency-free Python implementation and entirely synthetic examples. Original company files and account data are not included.
+This public edition rebuilds a workflow originally developed in Stata during a Weibo internship. It uses Python's standard library and entirely synthetic examples. Original company files and account data are not included. It does not scrape websites, call platform APIs, or automatically collect data.
 
 ## Try it
 
-Requires Python 3.9 or later. No packages or API keys are needed.
+Requires Python 3.9 or later. No packages, network access, or API keys are needed.
 
 ```bash
 python3 tracker.py --input examples --date 2026-09-05 --output reports
+python3 tracker.py --input examples --date 2026-09-05 --group-by business_group --rank-by engagement --platforms weibo,douyin --output reports
 ```
 
-Open `reports/report.html` for a visual summary, or use the CSV and JSON outputs in another workflow. Re-running overwrites generated files in the output directory.
+Open `reports/report.html`. Re-running overwrites generated report files in that directory.
 
-![Demo report using synthetic data](./demo.jpg)
+| Option | Choices / default |
+| --- | --- |
+| `--group-by` | `group` (default), `business_group`, `tracking_tier`, `account_type`, `market` |
+| `--rank-by` | `posts_published` (default), `engagement`, `likes_gained`, `comments_gained`, `reposts_gained` |
+| `--platforms` | Comma-separated names; default `weibo,douyin,xiaohongshu` |
 
-## What it does
+Rankings always stay within each platform, regardless of the grouping dimension. They use current month-to-date totals, require complete coverage of the selected metric only, and assign competition ranks for ties (1, 1, 3).
 
-- Keeps a consistent account roster across platforms.
-- Produces daily and month-to-date publication summaries.
-- Compares the same elapsed days in the previous month.
-- Produces platform rankings and group summaries with data-coverage indicators.
-- Preserves missing observations separately from confirmed zero activity.
+## Input contract
 
-```text
-Account roster + daily platform counts
-                   ↓
-Validate → match accounts → aggregate → compare periods
-                   ↓
-CSV tables + structured JSON + HTML report
-```
+Provide two UTF-8 CSV files. Account IDs remain strings and must already match across platforms. See [synthetic examples](./examples).
 
-## Data contract
+### accounts.csv
 
-Provide two UTF-8 CSV files. See [examples](./examples).
+`account_id,account_name,group,business_group,tracking_tier,account_type,market,owner,tags,active`
 
-| File | Columns | Rule |
-| --- | --- | --- |
-| `accounts.csv` | `account_id,account_name,group` | One row per account; IDs remain strings. |
-| `observations.csv` | `date,account_id,platform,posts` | One row per account/platform/day; posts must be a nonnegative integer. |
+- `account_id` and `account_name` are required; IDs must be unique.
+- The original `group` is retained. All additional columns are optional, so old rosters still work.
+- `tracking_tier`: `priority`, `standard`, or `watchlist`; missing/blank defaults to `standard`.
+- `account_type`: `owned`, `competitor`, `benchmark`, or `creator`; missing/blank remains unspecified.
+- `business_group`, `market`, `owner`, and `tags` are descriptive text. Use semicolons inside tags, e.g. `news;video`.
+- `active`: `true`/`false` or `1`/`0`; missing/blank defaults to true. Inactive accounts are excluded from reports and expected coverage.
+- Missing grouping values form an unspecified (blank) group; no business classification is inferred.
 
-Default platforms: `weibo,douyin,xiaohongshu`. Select a subset or supply other platform names with `--platforms`, for example:
+### observations.csv
 
-```bash
-python3 tracker.py --input examples --date 2026-09-05 --platforms weibo,douyin --output reports
-```
+`date,account_id,platform,posts_published,reposts_gained,likes_gained,comments_gained`
 
-Inputs must already use a common account ID across platforms. This tool processes prepared exports; it does not scrape sites or resolve account identities.
+Each row represents one account/platform/day. Dates use `YYYY-MM-DD`. All four metrics are **daily increments**, not cumulative snapshots: posts published that day, and reposts, likes, and comments gained that day. Interactions can be gained on older posts.
 
-## Reading the results
+- Counts must be nonnegative integers when supplied.
+- A blank cell, omitted metric column, or absent daily row means **unknown (`None`)**, never zero.
+- An explicit `0` means confirmed no new activity.
+- Legacy `posts` maps to `posts_published` when the new column is absent. If both columns exist, `posts_published` takes precedence, even when blank.
+- Duplicate account/platform/day keys, invalid dates, counts, or metadata are rejected.
+- Rows outside active accounts or selected platforms are excluded and counted. Counts and dates are still validated in those rows.
+
+## Metrics and coverage
+
+Each metric has its own observed/expected day count, coverage fraction (0–1), and `complete` / `partial` / `missing` status. Zero counts as observed. For group and overall totals, coverage counts account-platform-days; unknown entries are never filled with zero.
+
+Base metrics sum known observations. A partial sum is explicitly marked partial; a completely unknown sum stays null/blank.
+
+`engagement = reposts_gained + likes_gained + comments_gained`
+
+A day has known engagement only when all three interaction metrics are known for that same day. A period/group engagement total is output only when every expected entry has all three components; otherwise it stays null, with its own coverage. This prevents incomplete interaction sums from appearing reliable.
+
+`engagement_per_post = engagement / posts_published`
+
+The ratio requires complete interaction and post coverage plus a positive post total. With zero or unknown posts, the ratio stays null (never infinity). Ratio coverage describes input availability, so it can be complete while the ratio is undefined due to zero posts. Period and group ratios divide aggregated totals, rather than averaging daily ratios. This is an activity ratio, not attribution of engagement to that day's newly published posts.
+
+## Reports
 
 | Output | Contents |
 | --- | --- |
-| `daily.csv` | Selected-day counts for every monitored account and platform. |
-| `monthly.csv` | Month-to-date counts, comparable prior-period counts, coverage, and change. |
-| `rankings.csv` | Within-platform ranking of accounts with complete current-period coverage. |
-| `groups.csv` | Group/platform observed totals and expected versus observed account-days. |
-| `summary.json` | Report parameters, observed totals, coverage, and excluded input-row counts. |
-| `report.html` | A local visual report; no external scripts or network requests. |
+| `daily.csv` | Selected-day metrics and independent coverage for each active account/platform. |
+| `monthly.csv` | Current and previous month-to-date metrics, independent coverage, and changes. |
+| `priority.csv` | Month-to-date rows for `tracking_tier=priority`, including missing data. |
+| `rankings.csv` | Platform-local rankings with selected metric and value. |
+| `groups.csv` | Dynamic grouping dimension/value, platform totals, and coverage. |
+| `summary.json` | Parameters, overall metrics/coverage, and excluded/out-of-window counts. |
+| `report.json` | Complete structured report, including priority accounts and rankings. |
+| `report.html` | Offline tables for all metrics, coverage, priority accounts, groups, and rankings. |
 
-**Coverage matters.** A missing row means unknown activity; an explicit `0` means observed inactivity. Period totals sum available observations and are marked `complete`, `partial`, or `missing`. Changes are calculated only when both periods are complete. Rankings exclude incomplete accounts. Group totals remain observed totals, with coverage shown alongside them.
+CSV unknown values are blank; JSON uses null; HTML uses a dash. Each metric's export columns include `_observed_days`, `_expected_days`, `_coverage`, and `_status`. Monthly columns use `current_` / `previous_` prefixes. Changes require complete coverage in both periods and defined values. The output schema now uses `posts_published`; legacy compatibility applies to input CSVs.
 
-The comparison window starts on the first day of each month. The prior window ends on the same day number, capped at that month's last day. For example, March 31 compares with February 1–28/29; read the actual date ranges before comparing totals. Activity after the selected date does not enter current totals.
+Comparison windows start at each month's first day. The previous window ends on the same day number, capped at that month's last day. March 31 therefore compares with February 1–28/29. Read the date windows before comparing totals. Future observations do not enter the selected period. Expected coverage includes every active account on every selected platform; an unobserved platform is unknown, not zero.
 
-Rows outside the roster or selected platforms are excluded and counted in the summary. Duplicate account/platform/day observations are rejected rather than silently summed. Malformed dates and counts are rejected even in otherwise excluded rows.
+## Design
 
-## Design notes
-
-The earlier Stata workflow joined account rosters, consolidated daily/monthly data, and compared platform publishing activity. This edition makes those operations portable and explicit: stable keys, configurable paths, separate zero/missing values, and reproducible fixtures. It adds coverage checks and automated tests.
-
-Publication counts describe activity, not content quality or policy compliance. This repository demonstrates data and workflow automation; it does not contain an AI moderation agent.
+A single-file core, standard-library Python, local CSV inputs, and offline HTML/CSV/JSON outputs. No dependencies, crawlers, platform APIs, or automatic collection. Activity counts do not measure content quality or policy compliance.
 
 ## Validation
 
 ```bash
 python3 -m unittest discover -s tests -v
+git diff --check
 ```
 
-Tests cover duplicate keys, zero versus missing data, incomplete coverage, out-of-scope records, date boundaries, and report totals.
+Tests cover legacy input, zero versus unknown, independent coverage, conservative engagement totals, zero denominators, metadata/grouping, priority accounts, platform rankings, date windows, CLI options, and exports.
