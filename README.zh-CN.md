@@ -2,9 +2,7 @@
 
 [English](./README.md) · 中文
 
-离线多指标账号追踪：发文、转发、点赞、评论、总互动、篇均互动，以及分组、平台内排行和重点账号报告。
-
-本项目以 Python 标准库重新实现微博实习期间使用 Stata 搭建的自动化分析流程。所有示例均为模拟数据，不包含公司原始文件或真实账号数据。不会自动抓取，不使用爬虫或平台 API。
+多指标账号追踪：发文、转发、点赞、评论、总互动、篇均互动，以及平台内排行和重点账号报告。
 
 ```bash
 python3 tracker.py --input examples --date 2026-09-05 --group-by business_group --rank-by engagement --output reports
